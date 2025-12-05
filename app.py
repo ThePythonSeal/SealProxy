@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 @app.route("/proxy")
 def proxy():
-    target_url = request.args.get("url")
+    target_url = request.args.get("q")  # using ?q=LINK now
     mode = request.args.get("mode", "0")  # default: HTML rendering
 
     if not target_url:
@@ -24,29 +24,30 @@ def proxy():
 
     content_type = r.headers.get("content-type", "").lower()
 
-    # Raw text mode (mode=1)
+    # Mode 1: raw text
     if mode == "1":
-        if "text" in content_type or "html" in content_type:
-            return Response(r.text, content_type="text/plain")
-        return Response(r.content, content_type="text/plain")
+        return Response(r.text, content_type="text/plain")
 
-    # Normal rewrite mode (mode=0)
+    # Mode 0: HTML rewrite
     if "text/html" in content_type:
         soup = BeautifulSoup(r.text, "html.parser")
 
-        attrs = ["href", "src", "action"]
+        # Attributes we want to rewrite
+        attrs_to_rewrite = ["href", "src", "action"]
 
         for tag in soup.find_all():
-            for attr in attrs:
+            for attr in attrs_to_rewrite:
                 if tag.has_attr(attr):
                     original = tag[attr]
+                    # Make absolute URL
                     absolute = urljoin(target_url, original)
-                    tag[attr] = "/proxy?url=" + absolute
+                    # Rewrite through proxy
+                    tag[attr] = f"https://sealproxy.onrender.com/proxy?q={absolute}"
 
         rewritten = str(soup)
         return Response(rewritten, content_type="text/html")
 
-    # Non-HTML content just passthrough
+    # Non-HTML content: passthrough
     return Response(r.content, headers={"Content-Type": content_type})
 
 
@@ -54,7 +55,7 @@ def proxy():
 def home():
     return """
     <form action="/proxy" method="get">
-        <input name="url" placeholder="https://example.com" style="width:300px">
+        <input name="q" placeholder="https://example.com" style="width:300px">
         <select name="mode">
             <option value="0">Render HTML</option>
             <option value="1">Show raw HTML</option>
@@ -62,7 +63,6 @@ def home():
         <button>Go</button>
     </form>
     """
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
