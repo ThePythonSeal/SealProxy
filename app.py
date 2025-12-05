@@ -7,8 +7,8 @@ app = Flask(__name__)
 
 @app.route("/proxy")
 def proxy():
-    target_url = request.args.get("q")  # using ?q=LINK now
-    mode = request.args.get("mode", "0")  # default: HTML rendering
+    target_url = request.args.get("q")
+    mode = request.args.get("mode", "0")  # default mode 0
 
     if not target_url:
         return "Missing URL.", 400
@@ -24,11 +24,9 @@ def proxy():
 
     content_type = r.headers.get("content-type", "").lower()
 
-    # Rewrite HTML for both modes
+    # HTML rewriting (for all modes if HTML)
     if "text/html" in content_type:
         soup = BeautifulSoup(r.text, "html.parser")
-
-        # Attributes we want to rewrite
         attrs_to_rewrite = ["href", "src", "action"]
 
         for tag in soup.find_all():
@@ -36,20 +34,25 @@ def proxy():
                 if tag.has_attr(attr):
                     original = tag[attr]
                     absolute = urljoin(target_url, original)
-                    # Rewrite through proxy
+                    # Rewrite through proxy, preserve mode
                     tag[attr] = f"https://sealproxy.onrender.com/proxy?q={absolute}&mode={mode}"
 
-        rewritten = str(soup)
+        rewritten_html = str(soup)
 
-        if mode == "1":
-            # Mode 1 returns rewritten HTML as plain text
-            return Response(rewritten, content_type="text/plain")
-        else:
-            # Mode 0 returns HTML normally
-            return Response(rewritten, content_type="text/html")
+        if mode == "0":
+            return Response(rewritten_html, content_type="text/html")
+        elif mode == "1":
+            return Response(rewritten_html, content_type="text/plain")
+        elif mode == "2":
+            return Response(rewritten_html, content_type=content_type)
 
-    # Non-HTML content: passthrough for both modes
-    return Response(r.content, headers={"Content-Type": content_type})
+    # Non-HTML content
+    if mode == "2":
+        # Return raw content with original Content-Type
+        return Response(r.content, content_type=content_type)
+    else:
+        # For mode 0/1, return raw content as plain text if not HTML
+        return Response(r.content, content_type="text/plain")
 
 
 @app.route("/")
@@ -60,6 +63,7 @@ def home():
         <select name="mode">
             <option value="0">Render HTML</option>
             <option value="1">Show raw HTML</option>
+            <option value="2">Resource (original content type)</option>
         </select>
         <button>Go</button>
     </form>
