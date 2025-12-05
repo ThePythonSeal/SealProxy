@@ -24,18 +24,29 @@ def proxy():
 
     content_type = r.headers.get("content-type", "").lower()
 
-    # Rewrite HTML for all modes
+    # Rewrite HTML if content is HTML
     if "text/html" in content_type:
         soup = BeautifulSoup(r.text, "html.parser")
-        attrs_to_rewrite = ["href", "src", "action"]
 
+        # Iterate over all tags
         for tag in soup.find_all():
-            for attr in attrs_to_rewrite:
-                if tag.has_attr(attr):
-                    original = tag[attr]
-                    absolute = urljoin(target_url, original)
-                    # Rewrite through proxy using mode=2
-                    tag[attr] = f"https://sealproxy.onrender.com/proxy?q={absolute}&mode=2"
+            # Links (<a>) keep mode
+            if tag.name == "a" and tag.has_attr("href"):
+                original = tag["href"]
+                absolute = urljoin(target_url, original)
+                tag["href"] = f"https://sealproxy.onrender.com/proxy?q={absolute}&mode={mode}"
+            # Forms also keep mode
+            elif tag.name == "form" and tag.has_attr("action"):
+                original = tag["action"]
+                absolute = urljoin(target_url, original)
+                tag["action"] = f"https://sealproxy.onrender.com/proxy?q={absolute}&mode={mode}"
+            # Everything else (img, script, iframe, link[href], etc.) → force mode=2
+            else:
+                for attr in ["src", "href", "action"]:
+                    if tag.has_attr(attr):
+                        original = tag[attr]
+                        absolute = urljoin(target_url, original)
+                        tag[attr] = f"https://sealproxy.onrender.com/proxy?q={absolute}&mode=2"
 
         rewritten_html = str(soup)
 
