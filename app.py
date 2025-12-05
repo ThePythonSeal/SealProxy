@@ -18,7 +18,7 @@ def proxy():
         return "Invalid scheme.", 400
 
     try:
-        r = requests.get(target_url, timeout=8)
+        r = requests.get(target_url, timeout=30)
     except Exception as e:
         return f"Failed to fetch: {e}", 500
 
