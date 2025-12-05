@@ -34,16 +34,16 @@ def proxy():
             # Links and forms keep mode
             if tag.name == "a" and tag.has_attr("href"):
                 absolute = urljoin(target_url, tag["href"])
-                tag["href"] = f"https://sealproxy.onrender.com/proxy?q={absolute}&mode={mode}"
+                tag["href"] = f"https://freezingduck.onrender.com/proxy?q={absolute}&mode={mode}"
             elif tag.name == "form" and tag.has_attr("action"):
                 absolute = urljoin(target_url, tag["action"])
-                tag["action"] = f"https://sealproxy.onrender.com/proxy?q={absolute}&mode={mode}"
+                tag["action"] = f"https://freezingduck.onrender.com/proxy?q={absolute}&mode={mode}"
             else:
                 # All other src/href/action → force mode=2
                 for attr in ["src", "href", "action"]:
                     if tag.has_attr(attr):
                         absolute = urljoin(target_url, tag[attr])
-                        tag[attr] = f"https://sealproxy.onrender.com/proxy?q={absolute}&mode=2"
+                        tag[attr] = f"https://freezingduck.onrender.com/proxy?q={absolute}&mode=2"
 
         # Rewrite URLs inside <script> blocks
         for script in soup.find_all("script"):
@@ -54,7 +54,7 @@ def proxy():
                     # Resolve relative URLs
                     absolute = urljoin(target_url, orig_url)
                     # Force mode=2 for scripts/resources
-                    return f'"https://sealproxy.onrender.com/proxy?q={absolute}&mode=2"'
+                    return f'"https://freezingduck.onrender.com/proxy?q={absolute}&mode=2"'
 
                 script.string = re.sub(r'"(https?://[^"]+)"', replace_url, script.string)
                 # Optionally, also handle single quotes
@@ -173,7 +173,7 @@ return;
 if (mode === "1") iframe.setAttribute("sandbox", "");
 
 iframe.src =
-"https://sealproxy.onrender.com/proxy?mode=" +
+"https://freezingduck.onrender.com/proxy?mode=" +
 mode +
 "&q=" +
 encodeURIComponent(url);
