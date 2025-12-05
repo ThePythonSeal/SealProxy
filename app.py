@@ -24,7 +24,7 @@ def proxy():
 
     content_type = r.headers.get("content-type", "").lower()
 
-    # HTML rewriting (for all modes if HTML)
+    # Rewrite HTML for all modes
     if "text/html" in content_type:
         soup = BeautifulSoup(r.text, "html.parser")
         attrs_to_rewrite = ["href", "src", "action"]
@@ -34,8 +34,8 @@ def proxy():
                 if tag.has_attr(attr):
                     original = tag[attr]
                     absolute = urljoin(target_url, original)
-                    # Rewrite through proxy, preserve mode
-                    tag[attr] = f"https://sealproxy.onrender.com/proxy?q={absolute}&mode={mode}"
+                    # Rewrite through proxy using mode=2
+                    tag[attr] = f"https://sealproxy.onrender.com/proxy?q={absolute}&mode=2"
 
         rewritten_html = str(soup)
 
@@ -48,10 +48,8 @@ def proxy():
 
     # Non-HTML content
     if mode == "2":
-        # Return raw content with original Content-Type
         return Response(r.content, content_type=content_type)
     else:
-        # For mode 0/1, return raw content as plain text if not HTML
         return Response(r.content, content_type="text/plain")
 
 
