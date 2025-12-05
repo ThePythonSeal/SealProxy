@@ -2,13 +2,14 @@ from flask import Flask, request, Response
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
+import re
 
 app = Flask(__name__)
 
 @app.route("/proxy")
 def proxy():
     target_url = request.args.get("q")
-    mode = request.args.get("mode", "0")  # default mode 0
+    mode = request.args.get("mode", "0")
 
     if not target_url:
         return "Missing URL.", 400
@@ -24,29 +25,40 @@ def proxy():
 
     content_type = r.headers.get("content-type", "").lower()
 
-    # Rewrite HTML if content is HTML
+    # Only rewrite HTML
     if "text/html" in content_type:
         soup = BeautifulSoup(r.text, "html.parser")
+        attrs_to_rewrite = ["href", "src", "action"]
 
-        # Iterate over all tags
         for tag in soup.find_all():
-            # Links (<a>) keep mode
+            # Links and forms keep mode
             if tag.name == "a" and tag.has_attr("href"):
-                original = tag["href"]
-                absolute = urljoin(target_url, original)
+                absolute = urljoin(target_url, tag["href"])
                 tag["href"] = f"https://sealproxy.onrender.com/proxy?q={absolute}&mode={mode}"
-            # Forms also keep mode
             elif tag.name == "form" and tag.has_attr("action"):
-                original = tag["action"]
-                absolute = urljoin(target_url, original)
+                absolute = urljoin(target_url, tag["action"])
                 tag["action"] = f"https://sealproxy.onrender.com/proxy?q={absolute}&mode={mode}"
-            # Everything else (img, script, iframe, link[href], etc.) → force mode=2
             else:
+                # All other src/href/action → force mode=2
                 for attr in ["src", "href", "action"]:
                     if tag.has_attr(attr):
-                        original = tag[attr]
-                        absolute = urljoin(target_url, original)
+                        absolute = urljoin(target_url, tag[attr])
                         tag[attr] = f"https://sealproxy.onrender.com/proxy?q={absolute}&mode=2"
+
+        # Rewrite URLs inside <script> blocks
+        for script in soup.find_all("script"):
+            if script.string:
+                # Match http(s) URLs or relative URLs in quotes
+                def replace_url(match):
+                    orig_url = match.group(1)
+                    # Resolve relative URLs
+                    absolute = urljoin(target_url, orig_url)
+                    # Force mode=2 for scripts/resources
+                    return f'"https://sealproxy.onrender.com/proxy?q={absolute}&mode=2"'
+
+                script.string = re.sub(r'"(https?://[^"]+)"', replace_url, script.string)
+                # Optionally, also handle single quotes
+                script.string = re.sub(r"'(https?://[^']+)'", replace_url, script.string)
 
         rewritten_html = str(soup)
 
